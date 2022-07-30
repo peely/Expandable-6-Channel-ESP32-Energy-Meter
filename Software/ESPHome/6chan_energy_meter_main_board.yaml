@@ -5,7 +5,7 @@ substitutions:
 # Change the disp_name to something you want  
   disp_name: 6C
 # Interval of how often the power is updated
-  update_time: 10s
+  update_time: 5s
 # Current Transformers:
 #  20A/25mA SCT-006: 11143
 #  30A/1V SCT-013-030: 8650
@@ -14,28 +14,33 @@ substitutions:
 #  100A/50ma SCT-013-000: 27518
 #  120A/40mA: SCT-016: 41787
 #  200A/100mA SCT-024: 27518
-  current_cal: '27518'
+  current_cal_30: '8650'
+  current_cal_50: '15420'
 # Jameco 9VAC Transformer: 
 #  For meter versions: 
 #  >= v1.3: 7305
-  voltage_cal: '7305'
+  voltage_cal: '14853'
 
 esphome:
-  name: 6chan_energy_meter
+  name: 6chan-energy-meter
   platform: ESP32
   board: nodemcu-32s
 
 wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_pass
-  manual_ip:
-    static_ip: !secret ip_eh_nrgnode
-    gateway: !secret ip_gateway
-    subnet: !secret ip_subnet
-    dns1: !secret ip_dns1
+  ssid: IOT
+  password: "XXX"
+  # manual_ip:
+  #   static_ip: !secret ip_eh_nrgnode
+  #   gateway: !secret ip_gateway
+  #   subnet: !secret ip_subnet
+  #   dns1: !secret ip_dns1
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "6C-Home-Energy-Meter"
+    password: "XXX"
 
-# mqtt:
-#  broker: !secret mqtt_broker
+mqtt:
+ broker: 192.168.1.5
 #  username: !secret mqtt_user
 #  password: !secret mqtt_pass
 
@@ -58,90 +63,83 @@ spi:
 sensor:
   - platform: wifi_signal
     name: ${disp_name} WiFi
-    update_interval: 60s
+    update_interval: 10s
 #IC1
   - platform: atm90e32
     cs_pin: 5
     phase_a:
       voltage:
-        name: ${disp_name} Volts A
+        name: ${disp_name} Grid Volts A
         id: ic1Volts
         accuracy_decimals: 1
       current:
-        name: ${disp_name} CT1 Amps
+        name: ${disp_name} Grid Amps
         id: ct1Amps
 # The max value for current that the meter can output is 65.535. If you expect to measure current over 65A, 
 # divide the gain_ct by 2 (120A CT) or 4 (200A CT) and multiply the current and power values by 2 or 4 by uncommenting the filter below
 #        filters:
 #          - multiply: 2
       power:
-        name: ${disp_name} CT1 Watts
+        name: ${disp_name} Grid Watts
         id: ct1Watts
 #        filters:
 #          - multiply: 2
       gain_voltage: ${voltage_cal}
-      gain_ct: ${current_cal}
+      gain_ct: ${current_cal_50}
     phase_b:
       current:
-        name: ${disp_name} CT2 Amps
+        name: ${disp_name} Lighting Amps
         id: ct2Amps
       power:
-        name: ${disp_name} CT2 Watts
+        name: ${disp_name} Lighting Watts
         id: ct2Watts
       gain_voltage: ${voltage_cal}
-      gain_ct: ${current_cal}
+      gain_ct: ${current_cal_30}
     phase_c:
       current:
-        name: ${disp_name} CT3 Amps
+        name: ${disp_name} LR-K-HW Sockets Amps
         id: ct3Amps
       power:
-        name: ${disp_name} CT3 Watts
+        name: ${disp_name} LR-K-HW Sockets Watts
         id: ct3Watts
       gain_voltage: ${voltage_cal}
-      gain_ct: ${current_cal}
+      gain_ct: ${current_cal_30}
     frequency:
       name: ${disp_name} Freq A
-    line_frequency: 60Hz
+    line_frequency: 50Hz
     gain_pga: 1X
     update_interval: ${update_time}
 #IC2
   - platform: atm90e32
     cs_pin: 4
     phase_a:
-#this voltage is only needed if monitoring 2 voltages
-      voltage:
-        name: ${disp_name} Volts B
-        id: ic2Volts
-        accuracy_decimals: 1
       current:
-        name: ${disp_name} CT4 Amps
+        name: ${disp_name} Oven Amps
         id: ct4Amps
       power:
-        name: ${disp_name} CT4 Watts
+        name: ${disp_name} Oven Watts
         id: ct4Watts
       gain_voltage: ${voltage_cal}
-      gain_ct: ${current_cal}
+      gain_ct: ${current_cal_30}
     phase_b:
       current:
-        name: ${disp_name} CT5 Amps
+        name: ${disp_name} Study-Attic Sockets Amps
         id: ct5Amps
       power:
-        name: ${disp_name} CT5 Watts
+        name: ${disp_name} Study-Attic Sockets Watts
         id: ct5Watts
       gain_voltage: ${voltage_cal}
-      gain_ct: ${current_cal}
+      gain_ct: ${current_cal_30}
     phase_c:
       current:
-        name: ${disp_name} CT6 Amps
+        name: ${disp_name} Shower Amps
         id: ct6Amps
       power:
-        name: ${disp_name} CT6 Watts
+        name: ${disp_name} Shower Watts
         id: ct6Watts
       gain_voltage: ${voltage_cal}
-      gain_ct: ${current_cal}
-    frequency:
-      name: ${disp_name} Freq B
-    line_frequency: 60Hz
+      gain_ct: ${current_cal_30}
+    line_frequency: 50Hz
     gain_pga: 1X
     update_interval: ${update_time}
         
@@ -149,20 +147,22 @@ sensor:
   - platform: template
     name: ${disp_name} Total Amps
     id: totalAmps
-    lambda: return id(ct1Amps).state + id(ct2Amps).state + id(ct3Amps).state + id(ct4Amps).state + id(ct5Amps).state + id(ct6Amps).state ;
+    lambda: return id(ct2Amps).state + id(ct3Amps).state + id(ct4Amps).state + id(ct5Amps).state + id(ct6Amps).state ;
     accuracy_decimals: 2
     unit_of_measurement: A
     device_class: current
-    update_interval: ${update_time}         
+    update_interval: ${update_time}     
+
 #Total Watts
   - platform: template
     name: ${disp_name} Total Watts
     id: totalWatts
-    lambda: return id(ct1Watts).state + id(ct2Watts).state + id(ct3Watts).state + id(ct4Watts).state + id(ct5Watts).state + id(ct6Watts).state ;
+    lambda: return id(ct2Watts).state + id(ct3Watts).state + id(ct4Watts).state + id(ct5Watts).state + id(ct6Watts).state ;
     accuracy_decimals: 1
     unit_of_measurement: W
     device_class: energy
     update_interval: ${update_time}
+
 #kWh
   - platform: total_daily_energy
     name: ${disp_name} Total kWh
@@ -175,6 +175,8 @@ sensor:
 switch:
   - platform: restart
     name: ${disp_name} Restart  
+    
 time:
   - platform: sntp
-    id: sntp_time   
+    id: sntp_time
+    timezone: Europe/London
